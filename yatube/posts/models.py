@@ -28,6 +28,11 @@ class Post(models.Model):
         blank=True,
         null=True
     )
+    image = models.ImageField(
+        'Картинка',
+        upload_to='posts/',
+        blank=True
+    )  
 
     def __str__(self) -> str:
         return self.text[:15]
