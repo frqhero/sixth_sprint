@@ -14,7 +14,7 @@ class Group(models.Model):
 
 
 class Post(models.Model):
-    text = models.TextField()
+    text = models.TextField('Текст поста', help_text='Текст нового поста')
     pub_date = models.DateTimeField(auto_now_add=True)
     author = models.ForeignKey(
         User,
@@ -26,13 +26,15 @@ class Post(models.Model):
         on_delete=models.SET_NULL,
         related_name='posts',
         blank=True,
-        null=True
+        null=True,
+        verbose_name='Группа',
+        help_text='Группа, к которой будет относиться пост',
     )
     image = models.ImageField(
         'Картинка',
         upload_to='posts/',
         blank=True
-    )  
+    )
 
     def __str__(self) -> str:
         return self.text[:15]
@@ -50,4 +52,10 @@ class Comment(models.Model):
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
+        related_name='comments',
     )
+    text = models.TextField()
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created']
