@@ -3,6 +3,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from .models import Post, Group, User
 from django.core.paginator import Paginator
 from posts.forms import PostForm, CommentForm
+from django.views.decorators.cache import cache_page
 
 
 def to_paginate(p_iterable, page_number, posts_a_page=10):
@@ -10,6 +11,7 @@ def to_paginate(p_iterable, page_number, posts_a_page=10):
     return paginator.get_page(page_number)
 
 
+@cache_page(20, key_prefix='index_page')
 def index(request):
     posts_list = Post.objects.all()
     page_num_from_url = request.GET.get('page')

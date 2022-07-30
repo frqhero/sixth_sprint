@@ -1,5 +1,6 @@
 import shutil
 import tempfile
+import time
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -7,6 +8,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from posts.models import Group, Post, Comment
+from django.core.cache import caches
 
 User = get_user_model()
 
@@ -107,3 +109,35 @@ class PictureWorksTests(TestCase):
         response = self.guest_client.get(self.r_post_detail)
         com = response.context['comments'][0]
         self.assertEqual(com.text, self.form_data['text'])
+
+
+class CacheWorkingTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = User.objects.create_user(username='pushkin')
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+
+    def setUp(self):
+        self.guest_client = Client()
+
+    def test_cash_works(self):
+        response = self.guest_client.get(reverse('posts:index'))
+        calculated_content = response.content
+
+        Post.objects.create(
+            text='whatever',
+            author=self.user,
+        )
+        response = self.guest_client.get(reverse('posts:index'))
+        self.assertEqual(calculated_content, response.content)
+        self.assertIsNone(response.context)
+
+        caches['index_page'].clear()
+        response = self.guest_client.get(reverse('posts:index'))
+        self.assertNotEqual(calculated_content, response.content)
+        self.assertIsNotNone(response.context)
