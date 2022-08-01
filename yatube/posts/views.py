@@ -1,9 +1,10 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Post, Group, User
+from .models import Follow, Post, Group, User
 from django.core.paginator import Paginator
 from posts.forms import PostForm, CommentForm
 from django.views.decorators.cache import cache_page
+from django.urls import reverse
 
 
 def to_paginate(p_iterable, page_number, posts_a_page=10):
@@ -45,9 +46,15 @@ def profile(request, username):
 
     page_obj = to_paginate(post_list, page_num_from_url)
 
+    following = Follow.objects.filter(
+        user=request.user,
+        author=user,
+    ).exists()
+
     context = {
         'author': user,
         'page_obj': page_obj,
+        'following': following,
     }
     return render(request, 'posts/profile.html', context)
 
@@ -116,3 +123,39 @@ def add_comment(request, post_id):
 
 def csrf_failure(request, reason=''):
     return render(request, 'core/403csrf.html')
+
+
+@login_required
+def follow_index(request):
+    # информация о текущем пользователе доступна в переменной request.user
+    favs = Follow.objects.filter(user=request.user).select_related('author')
+    favs = [entry.author for entry in favs]
+    posts_list = Post.objects.filter(author__in=favs)
+    page_num_from_url = request.GET.get('page')
+
+    page_obj = to_paginate(posts_list, page_num_from_url)
+
+    context = {
+        'page_obj': page_obj,
+    }
+    return render(request, 'posts/follow.html', context)
+
+
+@login_required
+def profile_follow(request, username):
+    # Подписаться на автора
+    author = get_object_or_404(User, username=username)
+    Follow.objects.create(
+        user=request.user,
+        author=author,
+    )
+    return redirect(reverse('posts:profile', args=(username,)))
+
+
+@login_required
+def profile_unfollow(request, username):
+    # Дизлайк, отписка
+    author = get_object_or_404(User, username=username)
+    follow = get_object_or_404(Follow, user=request.user, author=author)
+    follow.delete()
+    return redirect(reverse('posts:profile', args=(username,)))

@@ -1,13 +1,12 @@
 import shutil
 import tempfile
-import time
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
-from posts.models import Group, Post, Comment
+from posts.models import Group, Post, Comment, Follow
 from django.core.cache import caches
 
 User = get_user_model()
@@ -151,3 +150,49 @@ class CustomPageTest(TestCase):
         response = self.guest_client.get('/non_existed_page/')
         template = 'core/404.html'
         self.assertTemplateUsed(response, template)
+
+
+class SubsTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user_p = User.objects.create_user(username='pushkin')
+        cls.user_l = User.objects.create_user(username='leo')
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+
+    def setUp(self):
+        self.auth_client_p = Client()
+        self.auth_client_p.force_login(self.user_p)
+        self.auth_client_l = Client()
+        self.auth_client_l.force_login(self.user_l)
+
+    def test_auth_can_sub_and_unsub(self):
+        follows_cnt = Follow.objects.count()
+        self.auth_client_p.get(reverse('posts:profile_follow',
+                                       args=(self.user_l.username,)))
+        self.assertEqual(Follow.objects.count(), follows_cnt + 1)
+
+        entry = Follow.objects.get(user=self.user_p)
+        self.assertEqual(entry.author, self.user_l)
+
+        self.auth_client_p.get(reverse('posts:profile_unfollow',
+                               args=(self.user_l.username,)))
+        self.assertEqual(Follow.objects.count(), follows_cnt)
+
+    def test_post_appears_in_right_feed(self):
+        # pushkin subs on leo
+        self.auth_client_p.get(reverse('posts:profile_follow',
+                                       args=(self.user_l.username,)))
+        leo_post = Post.objects.create(author=self.user_l, text='awesome post',
+                                       id=777)
+        response = self.auth_client_p.get(reverse('posts:follow_index'))
+        self.assertTrue(leo_post in response.context['page_obj'])
+
+        pushkin_post = Post.objects.create(author=self.user_p,
+                                           text='awesome post', id=555)
+        response = self.auth_client_l.get(reverse('posts:follow_index'))
+        self.assertTrue(pushkin_post not in response.context['page_obj'])
