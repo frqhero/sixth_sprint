@@ -112,3 +112,7 @@ def add_comment(request, post_id):
         comment.post = post
         comment.save()
     return redirect('posts:post_detail', post_id=post_id)
+
+
+def csrf_failure(request, reason=''):
+    return render(request, 'core/403csrf.html')

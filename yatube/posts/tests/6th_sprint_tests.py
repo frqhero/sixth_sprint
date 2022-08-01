@@ -141,3 +141,13 @@ class CacheWorkingTests(TestCase):
         response = self.guest_client.get(reverse('posts:index'))
         self.assertNotEqual(calculated_content, response.content)
         self.assertIsNotNone(response.context)
+
+
+class CustomPageTest(TestCase):
+    def setUp(self):
+        self.guest_client = Client()
+
+    def test_404_returns_custom_template(self):
+        response = self.guest_client.get('/non_existed_page/')
+        template = 'core/404.html'
+        self.assertTemplateUsed(response, template)
